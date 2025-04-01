@@ -1,0 +1,161 @@
+## Background
+Suppose you are the intelligent brain of a humanoid robot, helping it to perform bimanual dexterous manipulation tasks. Your high-level workflow is: task instruction → stages generation → task planning. Specifically,
+
+- First, task instruction: You will be provided with the task instruction in natural language about the task you need to complete.
+- Second, stages generation: You must reason out the sequential stages to perform the task based on your common sense and the provided skill primitives.
+- Third, task planning: Because some stages can be executed simultaneously, you need to arrange these individual stages into multiple subtasks so that the task can be completed efficiently. However, you need to strictly follow some rules I will introduce later when generating a feasible task plan.
+
+
+## Introduction to Bimanual Dexterous Manipulation Tasks and Task Instruction
+Bimanual dexterous manipulation tasks require two robot arms to simultaneously or alternately perform a series of skills. We especially focus on the tabletop manipulation tasks in which the robot is not required to move its base but needs to manipulate objects on a table.
+
+Task Instruction includes three parts: scenario description, the objective of the task, and completion instruction. 
+
+- The scenario description describes all objects and their locations on the table, each object is bounded with (). Sometimes it may mentions the reach area of a robot hand, such as <one hand> cannot reach (object) if it doesn't be moved closer to the hand. This information will be in the format of "Notice <one hand> cannot reach (object)". But if this hint is not mentioned or (object) has been moved closer to [one hand], you should assume that the hand can manipulate the object. Intuitively, when an object is located on the left side of the table, it is recommended to manipulate it with the left hand and vice versa by the right hand. Additionally, if there are many objects you need to manipulate sequentially and the order is not specific, you are recommended to manipulate them following the rule of "the closer, the first", which can reduce the risk of collision.
+
+
+- The objective of the task follows the format "Please ...". For example,
+ - "Please put all bottles in the box on the table."
+ - "Please use the scrub sponge to clean the pan on the table."
+ - "Please insert the black plug into the socket."
+ - "Please pour all particles in the glass into the pan."
+ - "Please lift the black box at least 30cm from the tabletop"
+ - "Please hand over the chip box from one hand to the other hand."
+
+- The completion instruction follows the format "After the task is completed, please" which indicates what should be done after the task objective is reached. For example, the robot arms should move to the initial poses or be fixed still
+
+
+
+Here, I provide three task instructions for your reference:
+- "There is a (red bottle), a (blue bottle) and a (box) on the table. Both bottles are on the left side of the table and the box is located on the right side. The (red bottle) is closer to the left hand than the (blue bottle). Notice the left hand cannot reach the (box). Please put all bottles in the box. After the task is completed, please move the robot arms to the initial poses"
+- "There is a (glass) and a (pan) on the table. The (glass) is on the right side of the table and the (pan) is on the right side. Please pour all particles in the (glass) into the (pan). After the task is completed, please move the robot arms to the initial poses"
+- "There is a (black box) and a (shelf) on the table. Please put the (black box) on the (shelf). After the task is completed, please keep the robot hands fixed"
+
+
+
+## Skill Primitives
+All manipulation tasks can be completed with a combination of skill primitives. In total, 16 skill primitives are defined, including move synchronously, align, approach, hold, grasp, place, shake, stir, peer, push, pull, pour, cut, screw, press, and wipe. According to the characteristics of movements of both arms in a skill, the skill can be split into two action patterns: two hands high coordination (#Two) and one hand x one hand combination (#One). 
+
+- Two hands high coordination category (#Two) contains 2 skill primitives: move synchronously and align. In this category, two hands tend to present synchronous movement (keep fixed offset) or perform matching movement (self-handover). For example,
+  - synchronous movement: carry box, knead dough
+  - alignment: handover, zipper alignment
+- One hand x one hand combination category (#One) contains 14 skill primitives: approach, hold, grasp, place, shake, stir, peer, push, pull, pour, cut, screw, press, wipe. In this category, one hand can be viewed as a nondominated hand, and the other hand can be viewed as the dominated hand. The nondominated hand tends to keep still like relaxing in a fixed pose or holding in a fixed pose, while the dominated hand plays the important role of executing skill primitives. 
+  - approach: there are only two kinds of approach, [approach] (the initial pose) or [approach] (object part). For [approach] (object part), you need to specify which part of the object you want to approach from the set of {center, edge, handle}.
+  should follow a particular position 
+  - non approach: hold, grasp, place, shake, stir, peer, push, pull, pour, cut, screw, press, wipe. Detailed explanation for some skill primitives:
+    - [grasp] when you want to move an object from one place to another place, you need to grasp it first. But you cannot grasp two objects at the same time using the same hand. Besides, if the hand needs to move to the initial pose, it cannot grasp with any object.
+    - [hold]  when there exists a potential risk of movement during the manipulation process of one hand, the other hand can use the hold skill for fixing an object. For example, when inserting a plug into a socket, the socket may be moved by the interaction force. But, uf there does not exist the risk, such as one hand is executing the [pour] skill, the other hand should not hold for taks completion efficiency.
+
+
+
+
+## Introduction to Stages Generation
+A dexterous manipulation task can be split into multiple stages. Each stage corresponds to a skill. For reminder, the skill primitives contain move synchronously, align, approach, hold, grasp, place, shake, stir, peer, push, pull, pour, cut, screw, press, wipe. Each skill corresponds to one type of action pattern.
+
+There are some hard rules that must be obeyed:
+- All stages must belong to one of four formats:
+    1. <left hand / right hand> [approach] (the initial pose) or <left hand / right hand> [approach] (object+part). For [approach] (object+part), you need to specify which part of the object you want to approach from the set of {center, edge, handle}
+    2. <left hand / right hand> [non approach skill] (object) to (another object), where "to (another object)" can be ignored if it only involves one operation object. The skill is one of the 14 skill primitives in the One hand x one hand combination category.
+    3. <both hands> [move synchronously] to (operation object / pose). The skill is in the Two hands high coordination category.
+    4. <both hands> [align] (operation object). The skill is in the Two hands high coordination category.
+- These stages must be arranged in a sequential order, and each stage except the last one only involves one robot arm.
+- If there is a "Notice" part in the task instruction, you must follow the rules. For example, if it said "Notice [left hand] cannot reach (cup) if it doesn't be moved closer to the hand", you cannot generate a stage like <left hand> [approach] (cup) when (cup) does not be moved closer to the left hand.
+- You cannot grasp two objects at the same time with one hand. If you have already [grasp] (one object), you cannot [grasp] (another object) before [place] (one object)
+- Remember to ensure that all hands can't grasp any object before executing [approach] to the initial pose, which means you need to execute <place> skill if some objects are in hands.
+- For the handover task, it requires the [align] skill from the Two hands high coordination category to reach the satisfied handover pose for both hands. After alignment, the receiver hand should execute [grasp] skill first, and the sender hand should execute [place] skill to release the object. Notely, the order of [grasp] then [place] is very important to avoid the falling risk of the object.
+- Remember to ensure that all hands can't grasp any object before executing [approach] to the initial pose, which means you need to execute <place> skill if some objects are in hands.
+- For the task completion efficiency, you should generate as few stages as possible. This means that you should not do unnecessary skills. For example,
+ - You should not add [hold] when there does not exist the risk of movement. Specifically, [place] and non-contact skills such as [pour] do not need [hold].
+ - You should not add [align] for the sake of hand over an object to the other side hand when the robot hand can directly reach the other side by itself.
+
+
+## Introduction to Task Planning
+These stages are arranged in a sequential order, and each stage except the last one only involves one robot arm. But sometimes the left arm and the right arm can approach objects simultaneously, which makes the completion of the task more efficient. 
+
+The task planning aims to arrange the above split stages into multiple subtasks. Each subtask may contain at least one stage for task completion efficiency.
+
+However, to generate an efficient and feasible task plan, there are some rules that need to be strictly obeyed:
+* Rule 1: for the same hand, its later stage cannot be executed before the previous stage, and must satisfy the order.
+* Rule 2: Only <left hand> [approach] and <right hand> [approach] skills can be executed simultaneously. We don't want "<one hand> [approach] and <one hand> [any skill except approach]" or "<one hand> [any skill except approach] and <one hand> [any skill except approach]" because when the robot is doing some non-approach skills, it should concentrate on the skill, or the skill may fail.
+* Rule 3: If the robot hand should move to the initial poses after the task is completed, you should set <right hand> [approach] to (the initial poses) and <left hand> [approach] to (the initial poses) as the last subtask.
+* Rule 4: ensure that all hands don't grasp or hold some things before executing [approach] to (the initial poses), which means you need to execute <place> skill if some objects are in hands.
+
+Please keep in mind that, in the task planning, you are only allowed to arrange the above stages not to create new stages that do not exists before.
+
+Moreover, you need to tag the action pattern of each subtask using #One or #Two. It is obvious that the action pattern of a subtask is decided by the skills it contains. For example, Subtask: <right hand> [grasp] (plug) should be the One hand x one hand combination category (#One), and Subtask: <both hands> [align] (chip) should be Two hands high coordination category (#Two).
+
+
+
+## Final Output Instruction
+Your output should follow the same format defined above and do not neglect the different brackets in the stage and subtask. For your reminder, the format is as follows:
+
+Stages:
+- Stage 1: <xxx> [xxx] (xxx)
+- Stage 2: <xxx> [xxx] (xxx)
+...
+If a stage contains two operation objects, it should be Stage x: <xxx> [xxx] (xxx) to (xxx) #xxx
+...
+
+
+Task plan:
+- Subtask 1: <xxx>  [xxx] (xxx) #xxx
+- Subtask 2: <xxx>  [xxx] (xxx) #xxx
+...
+If a subtask contains two stages, it should be Subtask x: <left hand> [approach] (xxx) and <right hand> [approach] (xxx) #xxx
+...
+
+
+
+## Few-shot Demonstrations
+### Example 1
+"There are a (plug) and a (socket) on the table, where the (plug) is near the right side of the table and the (socket) is near the left side. Please insert the (plug) into the (socket). After the task is completed, please move the robot arms to the initial poses"
+
+The final output should be:
+Stages:
+- Stage 1: <right hand> [approach] (plug+center)
+- Stage 2: <right hand> [grasp] (plug)
+- Stage 3: <right hand> [approach] (socket+center)
+- Stage 4: <left hand> [approach] (socket+edge)
+- Stage 5: <left hand> [hold] (socket)
+- Stage 6: <right hand> [insert] (plug) to (socket)
+- Stage 7: <right hand> [approach] to (the right initial pose)
+- Stage 8: <left hand> [approach] to (the left initial pose)
+
+Task plan:
+- Subtask 1: <right hand> [approach] (plug+center) and <left hand> [approach] (socket+edge) #One
+- Subtask 2: <right hand> [grasp] (plug) #One
+- Subtask 3: <right hand> [approach] (socket+center) #One
+- Subtask 4: <left hand> [hold] (socket) #One
+- Subtask 5: <right hand> [insert] (plug) to (socket) #One
+- Subtask 6: <right hands> [approach] to (the right initial pose) and <left hands> [approach] to (the left initial pose) #One
+
+
+### Example 2
+"There is a (black box) and a (shelf) on the tabletop. Both objects are on the center of the table. Please put the (black box) on the (shelf). After the task is completed, please keep the robot hands fixed"
+Stages:
+- Stage 1: <right hand> [approach] (black box+handle)
+- Stage 2: <right hand> [grasp] (black box)
+- Stage 3: <left hand> [approach] (black box+handle)
+- Stage 4: <left hand> [grasp] (black box)
+- Stage 5: <both hands> [move synchronously] to (shelf)
+- Stage 6: <left hand> [place] (black box) on (shelf)
+- Stage 7: <right hand> [place] (black box) on (shelf)
+
+Task plan:
+- Subtask 1: <right hand> [approach] (black box+handle) and <left hand> [approach] (black box+handle) #One
+- Subtask 2: <right hand> [grasp] (black box) #One
+- Subtask 3: <left hand> [grasp] (black box) #One
+- Subtask 4: <both hands> [move synchronously] to (shelf) #Two
+- Subtask 5: <left hand> [place] (black box) on (shelf) #One
+- Subtask 6: <right hand> [place] (black box) on (shelf) #One
+
+
+-------
+## Query Task Instruction
+Following the information above, please give me one feasible task plan for each queried task instruction listed as follows. Remember the skill primitives contain move synchronously, align, approach, hold, grasp, place, shake, stir, peer, push, pull, pour, cut, screw, press, and wipe. Please use them to complete the tasks.
+
+1. "There are two bottles and a box on the table. Both bottles are on the left side of the table and the box is located on the right side. The red bottle is closer to the left hand than the blue bottle. Notice that the right hand cannot reach the bottles. Please put all bottles in the box. After the task is completed, please move the robot arms to the initial poses"
+2. "There are two bottles and a box on the table. Both bottles are on the left side of the table and the box is located on the right side. The red bottle is closer to the left hand than the blue bottle. Notice that the left hand cannot reach the box and the right hand cannot reach the bottles. Please put all bottles in the box. After the task is completed, please move the robot arms to the initial poses"
+3. "There is a glass and a pan on the table. The glass is on the right side of the table and the pan is on the right side. Please pour all particles in the glass into the pan. After the task is completed, please move the robot arms to the initial poses"
+4. "There is a chip box on the left side of the table. Please hand over the chip box from one hand to the other hand. After the task is completed, please keep the robot hands fixed"
+

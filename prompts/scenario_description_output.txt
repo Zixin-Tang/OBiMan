@@ -1,0 +1,9 @@
+```json
+{
+    'xxx-1': {'type': 'xx/xx', color: 'xx', 'shape': 'xx', location': 'xx', 'state': []},
+    'xxx-2': {'type': 'xx/xx', color: 'xx', 'shape': 'xx', 'location': 'xx', 'state': []}
+}
+```
+
+
+Note: Cannot add redundant information, such as the reasoning process, explanations. 

@@ -1,0 +1,14 @@
+Stages:
+- Stage 1: <xxx> [xxx] (xxx)
+- Stage 2: <xxx> [xxx] (xxx)
+...
+If a stage contains two operation objects, it should be Stage x: <xxx> [xxx] (xxx) to (xxx) #xxx
+...
+
+
+Task plan:
+- Subtask 1: <xxx>  [xxx] (xxx) #xxx
+- Subtask 2: <xxx>  [xxx] (xxx) #xxx
+...
+If a subtask contains two stages, it should be Subtask x: <left hand> [approach] (xxx) and <right hand> [approach] (xxx) #xxx
+...

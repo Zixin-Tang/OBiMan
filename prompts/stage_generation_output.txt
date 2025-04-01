@@ -1,0 +1,20 @@
+```json
+Stages:
+- Stage 1: <xxx> [xxx] (xxx)
+- Stage 2: <xxx> [xxx] (xxx)
+```
+
+Note: The format must be the same as above. Cannot add any highlight symbol. Some common errors are as follows:
+    Error 1:   # must start with -
+        Stages:
+        1. Stage 1: xxx
+    Error 2: # cannot use the highlight symbol *
+        Stages:
+        - **Stage 1**: xxx
+    Error 3: # Stages cannot be omitted
+        - Stage 1: xxx
+    Error 4: # cannot contain symbol ##
+        ## Stages:
+        - Stage 1: xxx
+        
+Note: Cannot add redundant information, such as the reasoning process, explanations. 
