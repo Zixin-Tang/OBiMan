@@ -3,7 +3,7 @@
 ### [Paper (comming soon)]() | [Video (comming soon)]()
 
 > Open-World Task Planning for Humanoid Bimanual Dexterous Manipulation via Vision-Language Models <br />
-> Author: Zixin Tang, Zhihao Li, Zhuo Li, Fei Chen
+> Author: Zixin Tang, Zhihao Li, Junjia Liu, Zhuo Li, Fei Chen
 
 ## Abstract
 Open-world task planning, characterized by handling unstructured and dynamic environments, has been increasingly explored to integrate with long-horizon robotic manipulation tasks. However, existing evaluations of the capabilities of these planners primarily focus on single-arm systems in structured scenarios with limited skill primitives, which is insufficient for numerous bimanual dexterous manipulation scenarios prevalent in the real world. To this end, we introduce OBiMan-Bench, a large-scale benchmark designed to rigorously evaluate open-world planning capabilities in bimanual dexterous manipulation, including task-scenario grounding, workspace constraint handling, and long-horizon cooperative reasoning. In addition, we propose OBiMan-Planner, a vision-language model-based zero-shot planning framework tailored for bimanual dexterous manipulation. OBiMan-Planner comprises two key components, the scenario grounding module for grounding open-world task instruction with specific scenarios and the task planning module for generating sequential stages. Extensive experiments on OBiMan-Bench demonstrate the effectiveness of our method in addressing complex bimanual dexterous manipulation tasks in open-world scenarios.
